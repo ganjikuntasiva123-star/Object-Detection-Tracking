@@ -14,9 +14,13 @@ import time
 import threading
 import uuid
 import webbrowser
-import cv2import numpy as npfrom flask import Flask, render_template, Response, jsonify, requestfrom werkzeug.utils import secure_filename
+import cv2
+import numpy as np
 
-from detector import YOLODetector, COCO_CLASSESfrom tracker import SORTTracker
+from flask import Flask, render_template, Response, jsonify, request
+from werkzeug.utils import secure_filename
+from detector import YOLODetector, COCO_CLASSES
+from tracker import SORTTracker
 
 ---------------------------------------------------------------------------
 
