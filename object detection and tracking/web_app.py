@@ -8,8 +8,12 @@ Real-time controls (model, confidence, source selection)
 
 Stats panel (FPS, track counts, detection counts)"""
 
-import argparseimport osimport timeimport threadingimport uuidimport webbrowser
-
+import argparse
+import os
+import time
+import threading
+import uuid
+import webbrowser
 import cv2import numpy as npfrom flask import Flask, render_template, Response, jsonify, requestfrom werkzeug.utils import secure_filename
 
 from detector import YOLODetector, COCO_CLASSESfrom tracker import SORTTracker
