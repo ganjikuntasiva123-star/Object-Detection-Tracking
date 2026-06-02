@@ -21,25 +21,21 @@ from flask import Flask, render_template, Response, jsonify, request
 from werkzeug.utils import secure_filename
 from detector import YOLODetector, COCO_CLASSES
 from tracker import SORTTracker
-
----------------------------------------------------------------------------
-
-Color palette
-
----------------------------------------------------------------------------
-
+# ------------------------------------------------------------
+# Color palette
+# ------------------------------------------------------------
 COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0),(255, 0, 255), (0, 255, 255), (128, 0, 255), (255, 128, 0),(0, 128, 255), (255, 0, 128), (128, 255, 0), (0, 255, 128),]
 
 def get_color(track_id):return COLORS[track_id % len(COLORS)]
 
 ---------------------------------------------------------------------------
 
-Global state (accessed from both the processing thread and Flask routes)
-
+# Global state (accessed from both the processing thread and Flask routes)
 ---------------------------------------------------------------------------
 
-class AppState:def init(self):self.lock = threading.Lock()# Settingsself.source = "0"              # camera index or video pathself.model_name = "yolo11n.pt"self.conf_threshold = 0.5self.iou_threshold = 0.45self.track_iou = 0.3self.max_age = 30self.device = "cpu"self.filter_classes = None     # None = all classesself.resize = 0.75# Statusself.running = Falseself.frame_count = 0self.fps = 0.0self.num_tracks = 0self.num_detections = 0self.current_frame = None      # latest annotated frame (JPEG bytes)self.tracked_objects = []      # list of [x1,y1,x2,y2,track_id,class_id,conf]# Components (re-created on start / settings change)self.detector = Noneself.tracker = Noneself.cap = None# Event logself.event_log = []          # list of {"time", "type", "track_id", "class_name", "conf"}self.seen_track_ids = set()  # track IDs we've already loggedself.max_events = 200# Threadself.thread = None# History for FPS smoothingself.fps_history = []
-
+class AppState:
+    def __init__(self):
+        self.lock = threading.Lock()
 def build_components(self):
     """Create or re-create detector and tracker."""
     try:
