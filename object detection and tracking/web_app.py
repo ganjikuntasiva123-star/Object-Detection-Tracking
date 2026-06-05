@@ -239,8 +239,24 @@ Flask routes
 
 return Response(generate(), mimetype="multipart/x-mixed-replace; boundary=frame")
 
-@app.route("/api/status")def api_status():"""Return current stats as JSON."""with state.lock:return jsonify({"running": state.running,"frame_count": state.frame_count,"fps": round(state.fps, 1),"num_tracks": state.num_tracks,"num_detections": state.num_detections,"source": state.source,"model": state.model_name,"conf_threshold": state.conf_threshold,"device": state.device,"filter_classes": state.filter_classes,})
+@app.route('/api/status')
+def api_status():
 
+    return jsonify({
+
+        "online": True,
+
+        "running": getattr(state, "running", False),
+
+        "fps": 0,
+
+        "detections": 0,
+
+        "tracks": len(getattr(state, "tracked_objects", [])),
+
+        "frames": getattr(state, "frame_count", 0)
+
+    })
 @app.route("/api/start", methods=["POST"])def api_start():"""Start the video processing pipeline."""# --- Apply settings (fast, under lock) ---with state.lock:if state.running:return jsonify({"status": "already_running"})
 
     data = request.get_json(silent=True) or {}
