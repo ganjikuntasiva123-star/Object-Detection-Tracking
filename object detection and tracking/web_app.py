@@ -3,99 +3,116 @@ import cv2
 import time
 import threading
 
-from flask import Flask, render_template, Response, jsonify, request
+from flask import Flask, render_template, jsonify, request, Response
 
 from detector import YOLODetector, COCO_CLASSES
 from tracker import SORTTracker
 
 app = Flask(__name__)
 
-UPLOAD_FOLDER = "uploads"
+UPLOAD_FOLDER="uploads"
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
+os.makedirs(
+    UPLOAD_FOLDER,
+    exist_ok=True
+)
 
 class AppState:
 
     def __init__(self):
 
-        self.running = False
-        self.cap = None
-        self.thread = None
+        self.running=False
 
-        self.current_frame = None
+        self.cap=None
 
-        self.detector = None
-        self.tracker = None
+        self.thread=None
 
-        self.tracked_objects = []
+        self.current_frame=None
 
-        self.frame_count = 0
-        self.fps = 0
+        self.detector=None
 
-        self.event_log = []
+        self.tracker=None
+
+        self.frame_count=0
+
+        self.fps=0
+
+        self.tracks=[]
+
+        self.events=[]
+
+state=AppState()
 
 
-state = AppState()
+def add_event(msg):
+
+    state.events.append({
+
+        "time":time.strftime("%H:%M:%S"),
+
+        "msg":msg
+
+    })
+
+    if len(state.events)>100:
+
+        state.events=state.events[-100:]
 
 
 def video_worker():
 
-    previous = time.time()
+    prev=time.time()
 
     while state.running:
 
-        if state.cap is None:
-
-            break
-
-        ret, frame = state.cap.read()
+        ret,frame=state.cap.read()
 
         if not ret:
 
-            state.running = False
             break
 
-        detections = []
+        detections=[]
 
         try:
 
-            detections = state.detector.detect(frame)
+            detections=state.detector.detect(
+                frame
+            )
 
         except:
 
-            detections = []
+            detections=[]
 
         try:
 
-            tracked = state.tracker.update(detections)
+            tracks=state.tracker.update(
+                detections
+            )
 
         except:
 
-            tracked = []
+            tracks=[]
 
-        state.tracked_objects = tracked
+        state.tracks=tracks
 
-        for obj in tracked:
+        for t in tracks:
 
             try:
 
-                x1, y1, x2, y2, track_id, class_id, conf = obj
+                x1,y1,x2,y2,track_id,cls,conf=t
 
                 cv2.rectangle(
                     frame,
-                    (int(x1), int(y1)),
-                    (int(x2), int(y2)),
+                    (int(x1),int(y1)),
+                    (int(x2),int(y2)),
                     (0,255,0),
                     2
                 )
 
-                label = f"{track_id}"
-
                 cv2.putText(
                     frame,
-                    label,
-                    (int(x1), int(y1)-10),
+                    str(track_id),
+                    (int(x1),int(y1)-5),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.5,
                     (255,255,255),
@@ -106,23 +123,26 @@ def video_worker():
 
                 pass
 
-        now = time.time()
+        now=time.time()
 
-        if now != previous:
+        if now-prev>0:
 
-            state.fps = 1/(now-previous)
+            state.fps=1/(now-prev)
 
-        previous = now
+        prev=now
 
-        state.frame_count += 1
+        state.frame_count+=1
 
-        ret, buffer = cv2.imencode(".jpg", frame)
+        ok,buffer=cv2.imencode(
+            ".jpg",
+            frame
+        )
 
-        if ret:
+        if ok:
 
-            state.current_frame = buffer.tobytes()
+            state.current_frame=buffer.tobytes()
 
-    state.running = False
+    state.running=False
 
     if state.cap:
 
@@ -132,35 +152,56 @@ def video_worker():
 @app.route("/")
 def index():
 
-    return render_template("index.html")
+    return render_template(
+        "index.html"
+    )
 
 
 @app.route("/video_feed")
 def video_feed():
 
-    def generate():
+    def gen():
 
         while True:
 
             if state.current_frame:
 
-                yield (
-                    b'--frame\r\n'
-                    b'Content-Type: image/jpeg\r\n\r\n'
-                    + state.current_frame +
-                    b'\r\n'
+                yield(
+
+                    b"--frame\r\n"
+
+                    b"Content-Type:image/jpeg\r\n\r\n"
+
+                    +
+
+                    state.current_frame
+
+                    +
+
+                    b"\r\n"
+
                 )
 
-            time.sleep(0.03)
+            time.sleep(
+                0.03
+            )
 
     return Response(
-        generate(),
-        mimetype="multipart/x-mixed-replace; boundary=frame"
+
+        gen(),
+
+        mimetype=
+
+        "multipart/x-mixed-replace; boundary=frame"
+
     )
 
 
-@app.route("/api/start", methods=["POST"])
-def api_start():
+@app.route(
+    "/api/start",
+    methods=["POST"]
+)
+def start():
 
     if state.running:
 
@@ -170,21 +211,39 @@ def api_start():
 
         })
 
-    data = request.get_json(silent=True) or {}
+    data=request.get_json(
+        silent=True
+    ) or {}
 
-    source = str(data.get("source","0"))
-
-    model = data.get(
-
-        "model",
-
-        "yolo11n.pt"
-
+    source=data.get(
+        "source",
+        "0"
     )
+
+    model=data.get(
+        "model",
+        "yolo11n.pt"
+    )
+
+    # webcam disabled on Render
+
+    if source=="0":
+
+        return jsonify({
+
+            "status":"error",
+
+            "message":
+
+            "Webcam works only locally"
+
+        }),400
 
     try:
 
-        state.detector = YOLODetector(
+        state.detector=
+
+        YOLODetector(
 
             model_name=model,
 
@@ -192,7 +251,9 @@ def api_start():
 
         )
 
-        state.tracker = SORTTracker()
+        state.tracker=
+
+        SORTTracker()
 
     except Exception as e:
 
@@ -204,19 +265,9 @@ def api_start():
 
         }),500
 
-    # FIX WEB CAM CRASH ON RENDER
-
-    if source == "0":
-
-        return jsonify({
-
-            "status":"error",
-
-            "message":"Webcam only works locally. Use Video File on Render."
-
-        }),400
-
-    cap = cv2.VideoCapture(source)
+    cap=cv2.VideoCapture(
+        source
+    )
 
     if not cap.isOpened():
 
@@ -224,19 +275,19 @@ def api_start():
 
             "status":"error",
 
-            "message":"Cannot open source"
+            "message":"Cannot open video"
 
         }),500
 
-    state.cap = cap
+    state.cap=cap
 
-    state.running = True
+    state.running=True
 
-    state.frame_count = 0
+    state.frame_count=0
 
-    state.fps = 0
+    state.fps=0
 
-    thread = threading.Thread(
+    thread=threading.Thread(
 
         target=video_worker,
 
@@ -246,7 +297,11 @@ def api_start():
 
     thread.start()
 
-    state.thread = thread
+    state.thread=thread
+
+    add_event(
+        "stream started"
+    )
 
     return jsonify({
 
@@ -255,14 +310,17 @@ def api_start():
     })
 
 
-@app.route("/api/stop", methods=["POST"])
+@app.route(
+    "/api/stop",
+    methods=["POST"]
+)
 def stop():
 
-    state.running = False
+    state.running=False
 
-    if state.cap:
-
-        state.cap.release()
+    add_event(
+        "stream stopped"
+    )
 
     return jsonify({
 
@@ -276,26 +334,76 @@ def status():
 
     return jsonify({
 
-        "running": state.running,
+        "running":
 
-        "fps": round(state.fps,1),
+        state.running,
 
-        "tracks": len(state.tracked_objects),
+        "fps":
 
-        "frames": state.frame_count
+        round(
+
+            state.fps,
+
+            1
+
+        ),
+
+        "tracks":
+
+        len(
+
+            state.tracks
+
+        ),
+
+        "frames":
+
+        state.frame_count,
+
+        "detections":
+
+        len(
+
+            state.tracks
+
+        )
 
     })
+
+
+@app.route("/api/tracks")
+def tracks():
+
+    return jsonify(
+
+        state.tracks
+
+    )
+
+
+@app.route("/api/events")
+def events():
+
+    return jsonify(
+
+        state.events
+
+    )
 
 
 @app.route("/api/classes")
 def classes():
 
-    return jsonify(COCO_CLASSES)
+    return jsonify(
+
+        COCO_CLASSES
+
+    )
 
 
-if __name__ == "__main__":
+if __name__=="__main__":
 
-    port = int(
+    port=int(
 
         os.environ.get(
 
